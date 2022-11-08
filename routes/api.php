@@ -21,6 +21,8 @@ Route::middleware(['auth:sanctum'])
         Route::prefix('dashboard')
             ->controller(Api\DashboardController::class)
             ->group(function () {
+                Route::get('locations', 'locations');
+
                 Route::get('pie-chart', 'pieChart');
 
                 Route::get('stack-bar', 'stackBar');

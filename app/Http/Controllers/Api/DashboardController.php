@@ -3,20 +3,26 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
     public function pieChart()
     {
+        $location = request()->location === 'all' ? '' : request()->location;
+
+        $append = strlen($location) === 0 ? '' :
+            ' INNER JOIN users on users.id = assignments.user_id WHERE users.location = ?';
+
+        $binding = strlen($location) === 0 ? [] : [$location];
+
         $data = collect(DB::select(
             'WITH cte AS (
             SELECT
-                IF(AVG(assignments.score) > 3.5,
-                1,
-                0) AS status_
+                IF(AVG(assignments.score) > 3.5,1,0) AS status_
                 FROM
-                    assignments
+                    assignments' . $append . '
                 GROUP BY
                     assignments.user_id
         )
@@ -47,7 +53,8 @@ class DashboardController extends Controller
                     NULL
                 END) AS failed
         FROM
-            cte'
+            cte',
+            $binding
         ))
             ->first();
 
@@ -62,16 +69,21 @@ class DashboardController extends Controller
 
     public function stackBar()
     {
+        $location = request()->location === 'all' ? '' : request()->location;
+
+        $append = strlen($location) === 0 ? '' :
+            ' WHERE users.location = ?';
+
+        $binding = strlen($location) === 0 ? [] : [$location];
+
         $data = collect(DB::select(
             'WITH cte AS (
             SELECT
-                IF(AVG(assignments.score) > 3.5,
-                1,
-                0) AS status_,
+                IF(AVG(assignments.score) > 3.5,1,0) AS status_,
                     users. `location`
                 FROM
                     assignments
-                    INNER JOIN users ON users.id = assignments.user_id
+                INNER JOIN users ON users.id = assignments.user_id' . $append . '
                 GROUP BY
                     assignments.user_id
         )
@@ -105,7 +117,8 @@ class DashboardController extends Controller
         FROM
             cte
         GROUP BY
-            `location`'
+            `location`',
+            $binding
         ))
             ->map(fn ($d) => [
                 'location' => $d->location,
@@ -118,5 +131,18 @@ class DashboardController extends Controller
             ->toArray();
 
         return response()->json($data);
+    }
+
+    public function locations()
+    {
+        $locations = User::query()
+            ->select(
+                'users.location'
+            )
+            ->distinct()
+            ->pluck('location')
+            ->toArray();
+
+        return response()->json($locations);
     }
 }
